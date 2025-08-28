@@ -22,15 +22,17 @@ RUN groupadd -f -g ${KEDRO_GID} kedro_group && \
 WORKDIR /home/kedro_docker
 USER kedro_docker
 
-# Disable Arrow optimization to avoid sun.misc.Unsafe issues in containers
-ENV PYSPARK_SUBMIT_ARGS="--conf spark.sql.execution.arrow.pyspark.enabled=false --conf spark.sql.execution.arrow.pyspark.fallback.enabled=true pyspark-shell"
-
 FROM runtime-environment
 # copy the whole project except what is in .dockerignore
 ARG KEDRO_UID=999
 ARG KEDRO_GID=0
 COPY --chown=${KEDRO_UID}:${KEDRO_GID} . .
 
+# Disable Arrow optimization through multiple methods
+ENV PYSPARK_SUBMIT_ARGS="--conf spark.sql.execution.arrow.pyspark.enabled=false pyspark-shell"
+ENV SPARK_SQL_EXECUTION_ARROW_PYSPARK_ENABLED=false
+ENV JAVA_OPTS="-Dspark.sql.execution.arrow.pyspark.enabled=false"
+
 EXPOSE 8888
 
-CMD ["sh", "-c", "PYSPARK_SUBMIT_ARGS='--conf spark.sql.execution.arrow.pyspark.enabled=false pyspark-shell' kedro run"]
+CMD ["sh", "-c", "export PYSPARK_SUBMIT_ARGS='--conf spark.sql.execution.arrow.pyspark.enabled=false pyspark-shell' && kedro run"]
