@@ -13,6 +13,9 @@ RUN pip install uv
 COPY requirements.txt /tmp/requirements.txt
 RUN uv pip install --system --no-cache-dir -r /tmp/requirements.txt && rm -f /tmp/requirements.txt
 
+# Downgrade pyarrow to avoid sun.misc.Unsafe issues in containers
+RUN uv pip install --system --no-cache-dir "pyarrow<9.0.0"
+
 # add kedro user
 ARG KEDRO_UID=999
 ARG KEDRO_GID=0
@@ -28,14 +31,15 @@ ARG KEDRO_UID=999
 ARG KEDRO_GID=0
 COPY --chown=${KEDRO_UID}:${KEDRO_GID} . .
 
-# Create startup script that configures Spark properly
-RUN echo '#!/bin/bash\n\
-export JAVA_OPTS="--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED"\n\
-export PYSPARK_SUBMIT_ARGS="--driver-java-options=\"--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED\" --executor-java-options=\"--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED\" pyspark-shell"\n\
-exec kedro run\n\
-' > /home/kedro_docker/run_kedro.sh && \
-chmod +x /home/kedro_docker/run_kedro.sh
+# Create Spark configuration to disable Arrow
+RUN mkdir -p /home/kedro_docker/conf && \
+    echo "spark.sql.execution.arrow.pyspark.enabled false" > /home/kedro_docker/conf/spark-defaults.conf && \
+    echo "spark.sql.execution.arrow.pyspark.fallback.enabled true" >> /home/kedro_docker/conf/spark-defaults.conf
+
+# Set environment variables to disable Arrow completely
+ENV PYSPARK_SUBMIT_ARGS="--conf spark.sql.execution.arrow.pyspark.enabled=false --conf spark.sql.execution.arrow.pyspark.fallback.enabled=true pyspark-shell"
+ENV SPARK_CONF_DIR="/home/kedro_docker/conf"
 
 EXPOSE 8888
 
-CMD ["/home/kedro_docker/run_kedro.sh"]
+CMD ["kedro", "run"]
