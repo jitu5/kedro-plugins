@@ -13,8 +13,8 @@ RUN pip install uv
 COPY requirements.txt /tmp/requirements.txt
 RUN uv pip install --system --no-cache-dir -r /tmp/requirements.txt && rm -f /tmp/requirements.txt
 
-# Downgrade pyarrow to avoid sun.misc.Unsafe issues in containers
-RUN uv pip install --system --no-cache-dir "pyarrow<9.0.0"
+# Install specific pyarrow version that works well in containers
+RUN uv pip install --system --no-cache-dir "pyarrow==8.0.0" --only-binary=pyarrow
 
 # add kedro user
 ARG KEDRO_UID=999
