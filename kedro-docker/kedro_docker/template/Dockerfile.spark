@@ -28,9 +28,14 @@ ARG KEDRO_UID=999
 ARG KEDRO_GID=0
 COPY --chown=${KEDRO_UID}:${KEDRO_GID} . .
 
-# Force remove pyarrow to prevent Arrow usage entirely
-RUN pip uninstall -y pyarrow || true
+# Create startup script that configures Spark properly
+RUN echo '#!/bin/bash\n\
+export JAVA_OPTS="--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED"\n\
+export PYSPARK_SUBMIT_ARGS="--driver-java-options=\"--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED\" --executor-java-options=\"--add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED\" pyspark-shell"\n\
+exec kedro run\n\
+' > /home/kedro_docker/run_kedro.sh && \
+chmod +x /home/kedro_docker/run_kedro.sh
 
 EXPOSE 8888
 
-CMD ["kedro", "run"]
+CMD ["/home/kedro_docker/run_kedro.sh"]
